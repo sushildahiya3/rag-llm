@@ -90,7 +90,7 @@ rag_processor = st.session_state.rag_processor
 # Streamlit app
 st.title("RAG-based Q&A with  Llama")
 st.write("Upload a document and ask questions using the LLM.")
-
+print("---------------------------")
 # File upload
 uploaded_file = st.file_uploader("Upload a file (PDF, DOC, or Excel):", type=["pdf", "docx", "xlsx"])
 if uploaded_file:
