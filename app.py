@@ -11,7 +11,7 @@ class RAGProcessor:
     def __init__(self, model_id):
         self.client = model.ModelClient()
         self.model_id = model_id
-        self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2",cache_folder="/app/cache")
+        self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2",cache_folder="/cache")
         self.faiss_index = None
         self.chunks = []
         self.embeddings = None
