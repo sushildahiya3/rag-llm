@@ -1,5 +1,5 @@
 import streamlit as st
-from vipas import model
+from vipas import model,logger
 from sentence_transformers import SentenceTransformer
 import faiss
 import pdfplumber
@@ -90,24 +90,36 @@ rag_processor = st.session_state.rag_processor
 # Streamlit app
 st.title("RAG-based Q&A with  Llama")
 st.write("Upload a document and ask questions using the LLM.")
-print(f"---------------------------")
 # File upload
 uploaded_file = st.file_uploader("Upload a file (PDF, DOC, or Excel):", type=["pdf", "docx", "xlsx"])
 if uploaded_file:
+    print(f"Uploading the file")
     file_name = uploaded_file.name
     if file_name != rag_processor.last_file_name:
-        st.write("Processing the file...")
-        text = rag_processor.preprocess_document(uploaded_file)
+        print(f"Checking the file whether it is same previous file.")
+        st.write("Uploading the file...")
+    if uploaded_file or file_name == rag_processor.last_file_name:
+        print(f"Upload file completed.")
+        st.write("File Uploaded.")
+   
+submit_button = st.button("Submit", disabled=not bool(uploaded_file), key="submit_button")
+if submit_button and uploaded_file:
+    text = rag_processor.preprocess_document(uploaded_file)
 
-        if text:
-            st.write("Generating embeddings and indexing...")
-            chunks = rag_processor.store_embeddings(text)
+    if text:
+        st.write("Generating embeddings and indexing...")
+        print(f"Started genearting the embeddings and indexings.")
+        chunks = rag_processor.store_embeddings(text)
 
-            if chunks:
-                rag_processor.last_file_name = file_name
-                st.success("Document processed and indexed successfully!")
+        if chunks:
+            rag_processor.last_file_name = file_name
+            print(f"Document queried and indexed successfully.")
+            st.success("Document prQueryocessed and indexed successfully!")
+if rag_processor.last_file_name and rag_processor.faiss_index is not None:
+
     query = st.text_input("Enter your query:")
-    if query:
+    query_button = st.button("Query", key="query_button")
+    if query and query_button:
         context = rag_processor.retrieve_context(query)
         st.write("Retrieved Context:")
         st.write(context)
