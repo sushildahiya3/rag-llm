@@ -89,27 +89,31 @@ rag_processor = st.session_state.rag_processor
 
 # Streamlit app
 st.title("RAG-based Q&A with  Llama")
-st.write("Upload a document and ask questions using the LLM.")
+st.write("Upload a document (PDF, DOC, or Excel) under 2 MB and ask questions using the LLM.")
 # File upload
 uploaded_file = st.file_uploader("Upload a file (PDF, DOC, or Excel):", type=["pdf", "docx", "xlsx"])
 if uploaded_file:
-    file_name = uploaded_file.name
-    if file_name != rag_processor.last_file_name:
-        st.write("Uploading the file...")
-    if uploaded_file or file_name == rag_processor.last_file_name:
-        st.write("File Uploaded.")
+    file_size = uploaded_file.size / (1024 * 1024) 
+    if file_size > 2:
+        st.error("File size exceeds 2MB. Please upload a smaller file.")
+    else:
+        file_name = uploaded_file.name
+        if file_name != rag_processor.last_file_name:
+            st.write("Uploading the file...")
+        if uploaded_file or file_name == rag_processor.last_file_name:
+            st.write("File Uploaded.")
    
-submit_button = st.button("Submit", disabled=not bool(uploaded_file), key="submit_button")
-if submit_button and uploaded_file:
-    text = rag_processor.preprocess_document(uploaded_file)
+        submit_button = st.button("Submit", disabled=not bool(uploaded_file), key="submit_button")
+        if submit_button and uploaded_file:
+            text = rag_processor.preprocess_document(uploaded_file)
 
-    if text:
-        st.write("Generating embeddings and indexing...")
-        chunks = rag_processor.store_embeddings(text)
+            if text:
+                st.write("Generating embeddings and indexing...")
+                chunks = rag_processor.store_embeddings(text)
 
-        if chunks:
-            rag_processor.last_file_name = file_name
-            st.success("Document prQueryocessed and indexed successfully!")
+                if chunks:
+                    rag_processor.last_file_name = file_name
+                    st.success("Document prQueryocessed and indexed successfully!")
 if rag_processor.last_file_name and rag_processor.faiss_index is not None:
     query = st.text_input("Enter your query:")
 
