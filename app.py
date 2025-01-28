@@ -1,5 +1,5 @@
 import streamlit as st
-from vipas import model,logger
+from vipas import model,logger,config
 from sentence_transformers import SentenceTransformer
 import faiss
 import pdfplumber
@@ -75,6 +75,7 @@ class RAGProcessor:
             "Answer:"
         )
         try:
+            st.write(config.Config().host)
             response = self.client.predict(model_id=self.model_id, input_data=prompt)
             return response.get("choices", [{}])[0].get("text", "No response text available.")
         except Exception as e:
