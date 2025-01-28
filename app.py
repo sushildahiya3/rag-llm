@@ -1,5 +1,5 @@
 import streamlit as st
-from vipas import model,logger,config
+from vipas import model,logger
 from sentence_transformers import SentenceTransformer
 import faiss
 import pdfplumber
@@ -75,7 +75,6 @@ class RAGProcessor:
             "Answer:"
         )
         try:
-            st.write(config.Config().host)
             response = self.client.predict(model_id=self.model_id, input_data=prompt)
             return response.get("choices", [{}])[0].get("text", "No response text available.")
         except Exception as e:
@@ -94,13 +93,10 @@ st.write("Upload a document and ask questions using the LLM.")
 # File upload
 uploaded_file = st.file_uploader("Upload a file (PDF, DOC, or Excel):", type=["pdf", "docx", "xlsx"])
 if uploaded_file:
-    print(f"Uploading the file")
     file_name = uploaded_file.name
     if file_name != rag_processor.last_file_name:
-        print(f"Checking the file whether it is same previous file.")
         st.write("Uploading the file...")
     if uploaded_file or file_name == rag_processor.last_file_name:
-        print(f"Upload file completed.")
         st.write("File Uploaded.")
    
 submit_button = st.button("Submit", disabled=not bool(uploaded_file), key="submit_button")
@@ -109,17 +105,19 @@ if submit_button and uploaded_file:
 
     if text:
         st.write("Generating embeddings and indexing...")
-        print(f"Started genearting the embeddings and indexings.")
         chunks = rag_processor.store_embeddings(text)
 
         if chunks:
             rag_processor.last_file_name = file_name
-            print(f"Document queried and indexed successfully.")
             st.success("Document prQueryocessed and indexed successfully!")
 if rag_processor.last_file_name and rag_processor.faiss_index is not None:
-
     query = st.text_input("Enter your query:")
-    query_button = st.button("Query", key="query_button")
+
+    # Create columns to adjust alignment
+    col1, col2 = st.columns([8, 1])
+    with col2:  # Place the button in the right column
+        query_button = st.button("Query", disabled=not bool(query), key="query_button", type="primary")
+
     if query and query_button:
         context = rag_processor.retrieve_context(query)
         st.write("Retrieved Context:")
