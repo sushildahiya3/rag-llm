@@ -83,7 +83,7 @@ class RAGProcessor:
 
 # Use Streamlit session state to persist the processor
 if "rag_processor" not in st.session_state:
-    st.session_state.rag_processor = RAGProcessor(model_id="mdl-hy3grx9aoskqu")
+    st.session_state.rag_processor = RAGProcessor(model_id="mdl-i0595emvlc9n6")
 
 if "response" not in st.session_state:
     st.session_state.response = ""
