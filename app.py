@@ -130,10 +130,19 @@ if rag_processor.last_file_name and rag_processor.faiss_index is not None:
 
     if query and query_button:
         context = rag_processor.retrieve_context(query)
-        st.write("Retrieved Context:")
+        # st.write("Retrieved Context:")
+        st.markdown( """
+    <p><strong>Retrieved Context:</strong></p>
+    """,
+    unsafe_allow_html=True
+)
         st.write(context)
-
-        st.write("Generating response from LLM...")
+        st.markdown( """
+    <p><strong>Generating response from LLM...</strong></p>
+    """,
+    unsafe_allow_html=True
+)
+        # st.write("Generating response from LLM...")
         response = rag_processor.query_llm(query, context)
         st.write("### Response")
         st.write(response)
