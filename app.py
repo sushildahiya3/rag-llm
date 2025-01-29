@@ -134,12 +134,10 @@ if rag_processor.last_file_name and rag_processor.faiss_index is not None:
     # Create columns to adjust alignment
     col1, col2 = st.columns([8, 1])
     with col2:  # Place the button in the right column
-        query_button = st.button("Query", disabled=not bool(query), key="query_button", type="primary")
+        query_button = st.button("Query", key="query_button", type="primary")
 
     if query and query_button:
         context = rag_processor.retrieve_context(query)
-        st.markdown("<p><strong>Retrieved Context:</strong></p>", unsafe_allow_html=True)
-        st.write(context)
         st.markdown("<p><strong>Generating response from LLM...</strong></p>", unsafe_allow_html=True)
 
         # Store response in session state instead of displaying it immediately
