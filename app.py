@@ -1,5 +1,5 @@
 import streamlit as st
-from vipas import model
+from vipas import model, logger
 from sentence_transformers import SentenceTransformer
 import faiss
 import pdfplumber
@@ -12,6 +12,10 @@ class RAGProcessor:
         self.client = model.ModelClient()
         self.model_id = model_id
         self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+        self.faiss_index = None
+        self.chunks = []
+        self.embeddings = None
+        self.last_file_name = None
 
     def preprocess_document(self, file):
         try:
@@ -33,38 +37,34 @@ class RAGProcessor:
             return ""
 
     def store_embeddings(self, text, batch_size=32):
-        chunks = [text[i:i + 500] for i in range(0, len(text), 500)]
-        chunks = [chunk for chunk in chunks if chunk.strip()]
+        self.chunks = [text[i:i + 500] for i in range(0, len(text), 500)]
+        self.chunks = [chunk for chunk in self.chunks if chunk.strip()]
 
-        if not chunks:
+        if not self.chunks:
             st.error("No valid text found in the document.")
             return None
 
-        faiss_index = faiss.IndexFlatL2(384)  # Reinitialize FAISS index
-        embeddings = []
+        self.faiss_index = faiss.IndexFlatL2(384)  # Reinitialize FAISS index
+        self.embeddings = []
 
-        for i in range(0, len(chunks), batch_size):
-            batch = chunks[i:i + batch_size]
+        for i in range(0, len(self.chunks), batch_size):
+            batch = self.chunks[i:i + batch_size]
             batch_embeddings = self.embedding_model.encode(batch)
-            embeddings.extend(batch_embeddings)
+            self.embeddings.extend(batch_embeddings)
 
-        embeddings = np.array(embeddings)
-        faiss_index.add(embeddings)
-
-        # Save in session state
-        st.session_state.faiss_index = faiss_index
-        st.session_state.chunks = chunks
-        return chunks
+        self.embeddings = np.array(self.embeddings)
+        self.faiss_index.add(self.embeddings)
+        return self.chunks
 
     def retrieve_context(self, query):
-        if "faiss_index" not in st.session_state or "chunks" not in st.session_state:
+        if self.faiss_index is None or not self.chunks:
             st.error("No document is indexed. Please upload a file first.")
             return ""
 
         query_embedding = self.embedding_model.encode([query])
-        distances, indices = st.session_state.faiss_index.search(query_embedding, k=5)
+        distances, indices = self.faiss_index.search(query_embedding, k=5)  # Retrieve top 5 chunks
 
-        retrieved_chunks = [st.session_state.chunks[i] for i in indices[0]]
+        retrieved_chunks = [self.chunks[i] for i in indices[0]]
         return " ".join(retrieved_chunks)
 
     def query_llm(self, query, context):
@@ -76,73 +76,76 @@ class RAGProcessor:
         )
         try:
             response = self.client.predict(model_id=self.model_id, input_data=prompt)
-            llm_response = response.get("choices", [{}])[0].get("text", "No response text available.")
-
-            # Store the response in session state
-            st.session_state.llm_response = llm_response
-            return llm_response
+            return response.get("choices", [{}])[0].get("text", "No response text available.")
         except Exception as e:
             st.error(f"Error querying the LLM: {e}")
             return ""
 
-# Initialize the RAG processor if not in session state
+# Use Streamlit session state to persist the processor
 if "rag_processor" not in st.session_state:
     st.session_state.rag_processor = RAGProcessor(model_id="mdl-hy3grx9aoskqu")
 
+if "response" not in st.session_state:
+    st.session_state.response = ""
+
 rag_processor = st.session_state.rag_processor
 
-# Streamlit UI
+# Streamlit app
 st.markdown(
     """
     <h1 style="text-align: center;">DocQuery-AI</h1>
     """,
     unsafe_allow_html=True
 )
-st.write("RAG-based Q&A app using Llama with PDF, DOC, Excel input.")
+# st.write("RAG-based Q&A app using Llama with PDF, DOC, Excel input.")
+st.markdown("<h3>RAG-based Q&A app using Llama with PDF, DOC, Excel input.</h3>", unsafe_allow_html=True)
 st.write("Upload a document (PDF, DOC, or Excel) under 2 MB and ask questions using the LLM.")
 
 # File upload
 uploaded_file = st.file_uploader("Upload a file (PDF, DOC, or Excel):", type=["pdf", "docx", "xlsx"])
 if uploaded_file:
-    file_size = uploaded_file.size / (1024 * 1024)  # Convert bytes to MB
+    file_size = uploaded_file.size / (1024 * 1024) 
     if file_size > 2:
         st.error("File size exceeds 2MB. Please upload a smaller file.")
     else:
         file_name = uploaded_file.name
-        if "last_file_name" not in st.session_state or file_name != st.session_state.last_file_name:
+        if file_name != rag_processor.last_file_name:
             st.write("Uploading the file...")
-        
-        st.write("File Uploaded.")
+        if uploaded_file or file_name == rag_processor.last_file_name:
+            # st.write("File Uploaded.")
+            st.markdown("<p><strong>File Uploaded.</strong></p>", unsafe_allow_html=True)
+   
         submit_button = st.button("Submit", disabled=not bool(uploaded_file), key="submit_button")
-
-        if submit_button:
+        if submit_button and uploaded_file:
             text = rag_processor.preprocess_document(uploaded_file)
+
             if text:
-                st.write("Generating embeddings and indexing...")
+                # st.write("Generating embeddings and indexing...")
+                st.markdown("<p><strong>Generating embeddings and indexing...</strong></p>", unsafe_allow_html=True)
                 chunks = rag_processor.store_embeddings(text)
 
                 if chunks:
-                    st.session_state.last_file_name = file_name  # Persist the uploaded file name
+                    rag_processor.last_file_name = file_name
                     st.success("Document processed and indexed successfully!")
 
-# Ensure FAISS index exists before querying
-if "faiss_index" in st.session_state:
+if rag_processor.last_file_name and rag_processor.faiss_index is not None:
     query = st.text_input("Enter your query:")
-    
+
+    # Create columns to adjust alignment
     col1, col2 = st.columns([8, 1])
-    with col2:
-        query_button = st.button("Query", disabled=not bool(query), key="query_button",type="primary")
+    with col2:  # Place the button in the right column
+        query_button = st.button("Query", disabled=not bool(query), key="query_button", type="primary")
 
     if query and query_button:
         context = rag_processor.retrieve_context(query)
-        
         st.markdown("<p><strong>Retrieved Context:</strong></p>", unsafe_allow_html=True)
         st.write(context)
-        
         st.markdown("<p><strong>Generating response from LLM...</strong></p>", unsafe_allow_html=True)
-        response = rag_processor.query_llm(query, context)
 
-# Display stored response
-if "llm_response" in st.session_state:
+        # Store response in session state instead of displaying it immediately
+        st.session_state.response = rag_processor.query_llm(query, context)
+
+# Display stored response from session state
+if st.session_state.response:
     st.write("### Response")
-    st.write(st.session_state.llm_response)
+    st.write(st.session_state.response)
