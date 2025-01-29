@@ -111,7 +111,8 @@ if uploaded_file:
         if "last_file_name" not in st.session_state or file_name != st.session_state.last_file_name:
             st.write("Uploading the file...")
         
-        st.write("File Uploaded.")
+        # st.write("File Uploaded.")
+        st.markdown("<p><strong>File Uploaded.</strong></p>", unsafe_allow_html=True)
         submit_button = st.button("Submit", disabled=not bool(uploaded_file), key="submit_button")
 
         if submit_button:
