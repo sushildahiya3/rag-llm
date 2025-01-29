@@ -88,7 +88,13 @@ if "rag_processor" not in st.session_state:
 rag_processor = st.session_state.rag_processor
 
 # Streamlit app
-st.title("RAG-based Q&A with  Llama")
+st.markdown(
+    """
+    <h1 style="text-align: center;">DocQuery-AI</h1>
+    """,
+    unsafe_allow_html=True
+)
+st.write("RAG-based Q&A app using Llama with PDF, DOC, Excel input.")
 st.write("Upload a document (PDF, DOC, or Excel) under 2 MB and ask questions using the LLM.")
 # File upload
 uploaded_file = st.file_uploader("Upload a file (PDF, DOC, or Excel):", type=["pdf", "docx", "xlsx"])
