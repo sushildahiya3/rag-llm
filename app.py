@@ -12,9 +12,6 @@ class RAGProcessor:
         self.client = model.ModelClient()
         self.model_id = model_id
         self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-        self.faiss_index = None
-        self.chunks = []
-        self.embeddings = None
 
     def preprocess_document(self, file):
         try:
@@ -36,28 +33,28 @@ class RAGProcessor:
             return ""
 
     def store_embeddings(self, text, batch_size=32):
-        self.chunks = [text[i:i + 500] for i in range(0, len(text), 500)]
-        self.chunks = [chunk for chunk in self.chunks if chunk.strip()]
+        chunks = [text[i:i + 500] for i in range(0, len(text), 500)]
+        chunks = [chunk for chunk in chunks if chunk.strip()]
 
-        if not self.chunks:
+        if not chunks:
             st.error("No valid text found in the document.")
             return None
 
-        self.faiss_index = faiss.IndexFlatL2(384)  # Reinitialize FAISS index
-        self.embeddings = []
+        faiss_index = faiss.IndexFlatL2(384)  # Reinitialize FAISS index
+        embeddings = []
 
-        for i in range(0, len(self.chunks), batch_size):
-            batch = self.chunks[i:i + batch_size]
+        for i in range(0, len(chunks), batch_size):
+            batch = chunks[i:i + batch_size]
             batch_embeddings = self.embedding_model.encode(batch)
-            self.embeddings.extend(batch_embeddings)
+            embeddings.extend(batch_embeddings)
 
-        self.embeddings = np.array(self.embeddings)
-        self.faiss_index.add(self.embeddings)
+        embeddings = np.array(embeddings)
+        faiss_index.add(embeddings)
 
         # Save in session state
-        st.session_state.faiss_index = self.faiss_index
-        st.session_state.chunks = self.chunks
-        return self.chunks
+        st.session_state.faiss_index = faiss_index
+        st.session_state.chunks = chunks
+        return chunks
 
     def retrieve_context(self, query):
         if "faiss_index" not in st.session_state or "chunks" not in st.session_state:
@@ -79,7 +76,11 @@ class RAGProcessor:
         )
         try:
             response = self.client.predict(model_id=self.model_id, input_data=prompt)
-            return response.get("choices", [{}])[0].get("text", "No response text available.")
+            llm_response = response.get("choices", [{}])[0].get("text", "No response text available.")
+
+            # Store the response in session state
+            st.session_state.llm_response = llm_response
+            return llm_response
         except Exception as e:
             st.error(f"Error querying the LLM: {e}")
             return ""
@@ -111,8 +112,7 @@ if uploaded_file:
         if "last_file_name" not in st.session_state or file_name != st.session_state.last_file_name:
             st.write("Uploading the file...")
         
-        # st.write("File Uploaded.")
-        st.markdown("<p><strong>File Uploaded.</strong></p>", unsafe_allow_html=True)
+        st.write("File Uploaded.")
         submit_button = st.button("Submit", disabled=not bool(uploaded_file), key="submit_button")
 
         if submit_button:
@@ -131,7 +131,7 @@ if "faiss_index" in st.session_state:
     
     col1, col2 = st.columns([8, 1])
     with col2:
-        query_button = st.button("Query", disabled=not bool(query), key="query_button")
+        query_button = st.button("Query", disabled=not bool(query), key="query_button",type="primary")
 
     if query and query_button:
         context = rag_processor.retrieve_context(query)
@@ -141,6 +141,8 @@ if "faiss_index" in st.session_state:
         
         st.markdown("<p><strong>Generating response from LLM...</strong></p>", unsafe_allow_html=True)
         response = rag_processor.query_llm(query, context)
-        
-        st.write("### Response")
-        st.write(response)
+
+# Display stored response
+if "llm_response" in st.session_state:
+    st.write("### Response")
+    st.write(st.session_state.llm_response)
